@@ -4,11 +4,36 @@
 [![Latest Release](https://img.shields.io/github/v/release/PlatformStackPulse/tf-atom-iam-group-policy-attachment-aws)](https://github.com/PlatformStackPulse/tf-atom-iam-group-policy-attachment-aws/releases)
 ![Terraform](https://img.shields.io/badge/terraform-%3E%3D1.6.0-blueviolet)
 
+Terraform atom that attaches an existing managed IAM policy to an existing IAM group.
+
 ---
 
-## Purpose
+## Features
 
-Terraform atom: AWS IAM Group Policy Attachment - attaches a managed policy to an IAM group
+- Attaches a single managed IAM policy (by ARN) to a named IAM group via `aws_iam_group_policy_attachment`.
+- Validates inputs: `group_name` must be non-empty and `policy_arn` must be a well-formed IAM policy ARN.
+- `enabled` toggle (via the tf-label `context`) to create or suppress the attachment without removing the module block.
+- Full tf-label identity/context chaining (`namespace`, `stage`, `name`, `tags`, `context`, ...) for consistent naming across the fleet.
+- Outputs the resolved group name and attached policy ARN (both `null` when the module is disabled) for downstream wiring.
+
+## Usage
+
+```hcl
+module "readonly_attachment" {
+  source = "git::https://github.com/PlatformStackPulse/tf-atom-iam-group-policy-attachment-aws.git?ref=v1.0.0"
+
+  # tf-label identity
+  namespace = "eg"
+  stage     = "test"
+  name      = "thing"
+
+  # Required inputs
+  group_name = "eg-test-developers"
+  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
+```
+
+To disable the module (create no resources) while keeping the block in place, set `enabled = false`.
 
 ## Module Documentation
 
@@ -70,3 +95,18 @@ Terraform atom: AWS IAM Group Policy Attachment - attaches a managed policy to a
 | <a name="output_group"></a> [group](#output\_group) | Name of the group the policy is attached to |
 | <a name="output_policy_arn"></a> [policy\_arn](#output\_policy\_arn) | ARN of the attached policy |
 <!-- END_TF_DOCS -->
+
+## Tests
+
+Unit tests use Terraform's native test framework with a mocked AWS provider (no real AWS calls, no credentials needed).
+
+```bash
+# Unit tests (mocked provider, plan-only)
+terraform init -backend=false
+terraform test -test-directory=tests/unit
+
+# Integration tests (real provider, requires AWS credentials)
+terraform test -test-directory=tests/integration
+```
+
+The unit suite asserts that the attachment is planned and wired to the given group/policy when enabled, and that no resource is created (and outputs are `null`) when `enabled = false`.
